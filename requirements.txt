@@ -1,0 +1,3 @@
+anthropic        # eval.py and judge_flip.py (not needed with --mock)
+deepeval         # jev_examples.py
+typesafe-sdk     # jev_examples.py (Jev API)

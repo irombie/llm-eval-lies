@@ -1,0 +1,15 @@
+{"message": "I was charged twice for my subscription this month", "label": {"category": "billing", "priority": "high"}}
+{"message": "How do I change the email address on my account?", "label": {"category": "account", "priority": "low"}}
+{"message": "The app crashes every time I open the reports tab", "label": {"category": "technical", "priority": "high"}}
+{"message": "Can you explain the difference between the Pro and Team plans?", "label": {"category": "billing", "priority": "low"}}
+{"message": "I forgot my password and the reset link does not work", "label": {"category": "account", "priority": "high"}}
+{"message": "Your service is down and my whole team is blocked", "label": {"category": "technical", "priority": "high"}}
+{"message": "Where can I download last year's invoices?", "label": {"category": "billing", "priority": "low"}}
+{"message": "The dashboard numbers look wrong after the latest update", "label": {"category": "technical", "priority": "high"}}
+{"message": "I would like to close my account", "label": {"category": "account", "priority": "low"}}
+{"message": "Do you offer student discounts?", "label": {"category": "billing", "priority": "low"}}
+{"message": "Two-factor authentication is locking me out of everything", "label": {"category": "account", "priority": "high"}}
+{"message": "The export button does nothing when I click it", "label": {"category": "technical", "priority": "low"}}
+{"message": "I need a refund for a charge I did not authorize", "label": {"category": "billing", "priority": "high"}}
+{"message": "Is there a way to add teammates to my workspace?", "label": {"category": "account", "priority": "low"}}
+{"message": "Getting a 500 error on every API call since this morning", "label": {"category": "technical", "priority": "high"}}
