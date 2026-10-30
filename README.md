@@ -4,7 +4,7 @@
 
 Companion code for my talk at **AI Connect Istanbul** (September 30, 2026). Small, readable scripts that show how LLM evals mislead you, and the cheap habits that catch it.
 
-**Slides:** [Your LLM Evaluation Is Lying to You](https://claude.ai/artifact/1p37yFYAYwChzxxPs4bNk8)
+**Slides:** [Your LLM Evaluation Is Lying to You](Your%20LLM%20Evaluation%20Is%20Lying%20to%20You.pdf) (PDF)
 
 Every script runs in seconds with `--mock`, no API key needed.
 
@@ -175,6 +175,8 @@ python -m pytest
 ## Türkçe
 
 **AI Connect Istanbul** (30 Eylül 2026) konuşmam "Your LLM Evaluation Is Lying to You" için hazırlanmış eşlik kodu. LLM değerlendirmelerinin (eval) sizi nasıl yanılttığını ve bunu yakalayan ucuz alışkanlıkları gösteren küçük, okunabilir betikler.
+
+**Slaytlar:** [Your LLM Evaluation Is Lying to You](Your%20LLM%20Evaluation%20Is%20Lying%20to%20You.pdf) (PDF)
 
 Tüm betikler `--mock` ile saniyeler içinde çalışır, API anahtarı gerekmez.
 
