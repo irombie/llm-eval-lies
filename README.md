@@ -169,3 +169,64 @@ python -m pytest
 ## License
 
 [MIT](LICENSE)
+
+---
+
+## Türkçe
+
+**AI Connect Istanbul** (30 Eylül 2026) konuşmam "Your LLM Evaluation Is Lying to You" için hazırlanmış eşlik kodu. LLM değerlendirmelerinin (eval) sizi nasıl yanılttığını ve bunu yakalayan ucuz alışkanlıkları gösteren küçük, okunabilir betikler.
+
+Tüm betikler `--mock` ile saniyeler içinde çalışır, API anahtarı gerekmez.
+
+### Tek tabloda konuşma
+
+| Yalan | Neden yanlış | Çözüm | Bu repoda |
+| --- | --- | --- | --- |
+| "Benchmark'ta büyük modeli geçiyor." | Doygunluk (saturation) ve veri kirlenmesi (contamination) | Kirlenmeden arındırıldığında ne kaldığını sorun; kendi hatalarınızdan 20 örnek oluşturun | `dataset.jsonl` |
+| "LLM hakemi iyileştiğini söyledi." | Hakemlerin konum, uzunluk ve kendini kayırma eğilimleri vardır | İnsan etiketleriyle kalibre edin, cevap sırasını rastgele yapın | `judge_flip.py` |
+| "Ajanım çalışıyor. Tüm araçları çağırdı." | Doğru çağrılar yapılsa bile görev başarısız olabilir | Tüm süreci (trajectory) puanlayın | `jev_examples.py` (araç hata yönetimi) |
+| "Çalışıyor." | Küçük örneklem, tek çalıştırma, sadece İngilizce | Ayrılmış test seti, birden çok çalıştırma, hizmet verdiğiniz dilleri test edin | `eval.py --runs 5` |
+
+### İçerik
+
+- `eval.py` + `dataset.jsonl`: Tek bir yetenek (destek talebi yönlendirme) için eksiksiz bir eval. Deterministik puanlayıcı, hata nedenleri, CI kapısı ve gürültü tabanını gösteren `--runs` seçeneği.
+- `judge_flip.py`: LLM hakeminde konum yanlılığı. Aynı iki cevap, sırayı değiştirin, kararları sayın.
+- `jev_examples.py`: DeepEval `JevEval` metrikleri olarak Jev soruları (Noul, Score, Choice); Türkçe bir RAG kontrolü dahil.
+- `tests/`: Altyapının kendisi için testler: ayrıştırıcı, puanlayıcı, şema kontrolleri, kapı çıkış kodları.
+- `.github/workflows/eval.yml`: Her push'ta testleri ve eval kapısını çalıştırır.
+
+### Hızlı başlangıç (API anahtarı olmadan)
+
+Python 3.10 veya üstü gerekir. Mock komutları yalnızca standart kütüphaneyi kullanır. Komutlar için yukarıdaki [Quick start](#quick-start-no-api-key) bölümüne bakın.
+
+`--mock`, her etkiyi hemen görebilmeniz için gerçek model yerine simüle edilmiş bir model kullanır. Mock sayıları etkiyi göstermek içindir; herhangi bir gerçek model hakkında sonuç değildir. `--seed` mock çıktısını tekrarlanabilir yapar.
+
+**Ne görmelisiniz:**
+
+- Tek bir çalıştırma size skoru **ve her örneğin neden başarısız olduğunu** söyler.
+- Aynı model, aynı veri üzerinde beş kez çalıştırıldığında skor %73 ile %93 arasında oynar. Bu aralıktan küçük bir fark sonuç değil, varyanstır.
+- Hakem, yalnızca cevap sırası değiştirildiğinde ilk sıradaki cevabı çok daha sık seçer. Sıraya duyarsız bir hakem %50 civarında olmalıdır.
+
+`python judge_flip.py --mock --seed 0` deneyin: sıra başına yalnızca 10 denemeyle aynı yanlı hakem yansız görünebilir. Bu yine gürültü dersidir. Hakeminiz hakkında bir sonuca varmadan önce `--n 50` veya daha fazlasını kullanın.
+
+### Gerçek bir modelle
+
+`pip install -r requirements.txt` ile bağımlılıkları kurun ve `ANTHROPIC_API_KEY` ortam değişkenini ayarlayın. Her iki betik de varsayılan olarak `claude-sonnet-4-6` kullanır; `--model` ile ya da `EVAL_MODEL` / `JUDGE_MODEL` ortam değişkenleriyle değiştirebilirsiniz. Kendi sağlayıcınızı kullanmak için her betikte **değiştirmeniz gereken tek bir fonksiyon** var: `eval.py` içinde `call_model`, `judge_flip.py` içinde `call_judge`.
+
+`judge_flip.py`, `--temperature` değerini yalnızca siz verdiğinizde gönderir, çünkü yeni Claude modelleri (4.7 ve sonrası) varsayılan dışı bir temperature değerini reddeder.
+
+Jev şu an erken erişimdedir. Örnek `deepeval` 4.3.2 ve `typesafe-sdk` 0.7.5 ile test edildi; yeni bir sürüm API'yi değiştirirse [JevEval dokümanlarına](https://deepeval.com/docs/metrics-jev-eval) bakın.
+
+### CI'da kullanım
+
+`eval.py`, doğruluk `--threshold` değerinin (varsayılan 0.80) altına düştüğünde 1 çıkış koduyla sonlanır, böylece herhangi bir CI sistemi buna göre kapı koyabilir. Dahil edilen GitHub Actions iş akışı, altyapı testlerini ve seed'li bir mock kapısını çalıştırır. Seed olmadan mock şans eseri geçer ya da kalır; tek bir çalıştırmanın neden sonuç olmadığını tam da bu gösterir. Gerçek bir modelle kapı koymak için `ANTHROPIC_API_KEY`'i repo secret'ı olarak ekleyin ve iş akışı dosyasının başındaki yorumu takip edin.
+
+### Kendinize uyarlayın
+
+Kod geneldir. Asıl değer `dataset.jsonl` içindedir.
+
+1. Satırları gerçek trafiğinizden alınmış, elle etiketlenmiş 20 kadar örnekle değiştirin. Daha önce gördüğünüz hatalarla başlayın.
+2. Nadir olanlar dahil her etiketi kapsayın. Bu örnek veri `other` etiketini hiç kullanmıyor, bu yüzden modelin onu fazla tahmin edip etmediğini söyleyemez.
+3. Prompt'larınızı asla üzerinde ayarlamadığınız ayrı bir test seti tutun.
+4. `eval.py` içindeki `CATEGORIES`, `PRIORITIES` ve `PROMPT` değerlerini görevinize göre değiştirin. `load_dataset`, şema dışındaki her etiketi reddeder; böylece bir yazım hatası doğruluğunuzu sessizce düşürmek yerine açıkça hata verir.
+5. Her değişiklikten önce ve sonra `--runs 5` ile çalıştırın. Fark, dağılımdan küçükse henüz hiçbir şey göstermiş değilsiniz.
