@@ -1,0 +1,30 @@
+# Runs the harness tests and the eval gate on every push and pull request.
+#
+# The gate step uses the mock model with a fixed seed so CI is repeatable
+# without an API key. Unseeded, the mock passes or fails depending on luck,
+# which is the noise-floor lesson from the talk showing up in your CI.
+#
+# To gate on a real model instead, add ANTHROPIC_API_KEY as a repository
+# secret and replace the gate step with:
+#   python eval.py --threshold 0.80
+#   env: ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+name: eval
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - name: Test the harness
+        run: python -m pytest -q
+      - name: Eval gate (mock model, seeded)
+        run: python eval.py --mock --seed 0

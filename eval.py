@@ -12,13 +12,15 @@ Why this shape for a talk:
     version them in dataset.jsonl. Everything below is just plumbing.
 
 Run:
-    python eval.py --mock            # no API key: exercises the harness itself
-    python eval.py                   # real model, single pass, CI gate
-    python eval.py --runs 5          # 5 passes: is your "win" bigger than the noise?
+    python eval.py --mock                     # no API key: exercises the harness itself
+    python eval.py --mock --runs 5 --seed 1772   # the exact numbers on the noise slide
+    python eval.py                            # real model, single pass, CI gate
+    python eval.py --runs 5                   # 5 passes: is your "win" bigger than the noise?
 """
 
 import argparse
 import json
+import os
 import random
 import re
 import statistics
@@ -26,6 +28,9 @@ from pathlib import Path
 
 CATEGORIES = {"billing", "technical", "account", "other"}
 PRIORITIES = {"low", "high"}
+
+# Override with --model or the EVAL_MODEL environment variable.
+DEFAULT_MODEL = os.environ.get("EVAL_MODEL", "claude-sonnet-4-6")
 
 PROMPT = """You are a support ticket router. Reply with ONLY a JSON object:
 {{"category": one of ["billing","technical","account","other"], "priority": one of ["low","high"]}}
@@ -36,21 +41,29 @@ Message: {message}"""
 
 def load_dataset(path):
     rows = []
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rows.append(json.loads(line))
+    for n, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        label = row.get("label", {})
+        if label.get("category") not in CATEGORIES or label.get("priority") not in PRIORITIES:
+            # A typo in a gold label silently caps your accuracy. Fail loudly instead.
+            raise ValueError(f"{path}:{n}: label outside the schema: {label}")
+        rows.append(row)
+    if not rows:
+        raise ValueError(f"{path}: no examples found")
     return rows
 
 
 # --- the ONE function you swap for your provider ---------------------------
-def call_model(message, mock=False):
+def call_model(message, model=DEFAULT_MODEL, mock=False):
     if mock:
         return _mock_model(message)
     # pip install anthropic ; export ANTHROPIC_API_KEY=...
     import anthropic
     client = anthropic.Anthropic()
     resp = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=model,
         max_tokens=100,
         messages=[{"role": "user", "content": PROMPT.format(message=message)}],
     )
@@ -64,9 +77,10 @@ def parse(raw):
     if not match:
         return None
     try:
-        return json.loads(match.group(0))
+        obj = json.loads(match.group(0))
     except json.JSONDecodeError:
         return None
+    return obj if isinstance(obj, dict) else None
 
 
 def score_one(pred, gold):
@@ -79,10 +93,10 @@ def score_one(pred, gold):
     return (1, "correct") if ok else (0, "wrong")
 
 
-def run_once(data, mock=False):
+def run_once(data, model=DEFAULT_MODEL, mock=False):
     correct, failures = 0, []
     for row in data:
-        pred = parse(call_model(row["message"], mock=mock))
+        pred = parse(call_model(row["message"], model=model, mock=mock))
         s, why = score_one(pred, row["label"])
         correct += s
         if s == 0:
@@ -90,21 +104,28 @@ def run_once(data, mock=False):
     return correct / len(data), failures
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="dataset.jsonl")
-    ap.add_argument("--runs", type=int, default=1)
-    ap.add_argument("--threshold", type=float, default=0.80)  # your CI gate
-    ap.add_argument("--mock", action="store_true")
-    args = ap.parse_args()
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Support-ticket routing eval with a CI gate.")
+    ap.add_argument("--data", default="dataset.jsonl", help="JSONL file of examples")
+    ap.add_argument("--runs", type=int, default=1, help="passes over the data; >1 reports the spread")
+    ap.add_argument("--threshold", type=float, default=0.80, help="CI gate on accuracy")
+    ap.add_argument("--model", default=DEFAULT_MODEL, help="model id passed to call_model")
+    ap.add_argument("--mock", action="store_true", help="simulated model, no API key needed")
+    ap.add_argument("--seed", type=int, default=None, help="seed the mock model for repeatable output")
+    args = ap.parse_args(argv)
+
+    if args.seed is not None:
+        random.seed(args.seed)
 
     data = load_dataset(args.data)
+    who = "mock model" if args.mock else args.model
+    print(f"model: {who}   examples: {len(data)}\n")
 
     # Multi-run: the honest way to report a score. One number is not a result.
     if args.runs > 1:
         scores = []
         for i in range(args.runs):
-            acc, _ = run_once(data, mock=args.mock)
+            acc, _ = run_once(data, model=args.model, mock=args.mock)
             scores.append(acc)
             print(f"  run {i + 1}: {acc:.1%}")
         lo, hi = min(scores), max(scores)
@@ -113,10 +134,10 @@ def main():
               f"stdev {statistics.pstdev(scores):.1%}  range [{lo:.1%}, {hi:.1%}]")
         print(f"noise floor this run: {spread:.1%}. "
               f"A change smaller than that is not a result, it is variance.")
-        return
+        return 0
 
     # Single run: score, show what broke, then gate.
-    acc, failures = run_once(data, mock=args.mock)
+    acc, failures = run_once(data, model=args.model, mock=args.mock)
     print(f"accuracy: {acc:.1%} on {len(data)} examples\n")
     if failures:
         print("failures (fix these before you trust the number):")
@@ -124,7 +145,7 @@ def main():
             print(f"  [{why:12}] {msg}")
     passed = acc >= args.threshold
     print(f"\ngate: {'PASS' if passed else 'FAIL'} (threshold {args.threshold:.0%})")
-    raise SystemExit(0 if passed else 1)  # non-zero exit fails CI
+    return 0 if passed else 1  # non-zero exit fails CI
 
 
 # A deliberately imperfect stand-in so the harness runs with no API key,
@@ -150,4 +171,4 @@ def _mock_model(message):
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

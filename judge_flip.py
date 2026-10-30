@@ -6,15 +6,22 @@ is which answer is shown first. If the judge were unbiased, the winner
 would not depend on the order.
 
 Run:
-    python judge_flip.py --mock              # no API key: fake judge with a built-in position bias
+    python judge_flip.py --mock --seed 2     # no API key: fake judge with a built-in position bias
     python judge_flip.py                     # real judge, 10 trials per order
-    python judge_flip.py --n 20 --model claude-haiku-4-5-20251001
-    python judge_flip.py --temperature 0     # deterministic: one clean flip or none
+    python judge_flip.py --n 20 --model <judge-model>
+    python judge_flip.py --temperature 0     # near-deterministic: one clean flip or none
+
+Note: newer models (Claude 4.7 and later) reject a non-default temperature, so
+--temperature is only sent when you pass it. Leave it out for those models.
 """
 
 import argparse
+import os
 import random
 import re
+
+# Override with --model or the JUDGE_MODEL environment variable.
+DEFAULT_JUDGE = os.environ.get("JUDGE_MODEL", "claude-sonnet-4-6")
 
 JUDGE_PROMPT = """You are an impartial judge. Below is a user question and two responses.
 Decide which response is better overall, considering accuracy,
@@ -57,11 +64,12 @@ def call_judge(prompt, model, temperature, mock=False):
     # pip install anthropic ; export ANTHROPIC_API_KEY=...
     import anthropic
     client = anthropic.Anthropic()
+    kwargs = {"temperature": temperature} if temperature is not None else {}
     resp = client.messages.create(
         model=model,
         max_tokens=5,
-        temperature=temperature,
         messages=[{"role": "user", "content": prompt}],
+        **kwargs,
     )
     return resp.content[0].text
 # ---------------------------------------------------------------------------
@@ -88,13 +96,18 @@ def run_order(first, second, n, model, temperature, mock):
     return a, b, bad
 
 
-def main():
-    ap = argparse.ArgumentParser()
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Swap the answer order, count the judge's verdicts.")
     ap.add_argument("--n", type=int, default=10, help="trials per order")
-    ap.add_argument("--model", default="claude-sonnet-4-6")
-    ap.add_argument("--temperature", type=float, default=1.0)
-    ap.add_argument("--mock", action="store_true")
-    args = ap.parse_args()
+    ap.add_argument("--model", default=DEFAULT_JUDGE, help="judge model id")
+    ap.add_argument("--temperature", type=float, default=None,
+                    help="sampling temperature (omitted from the request unless set)")
+    ap.add_argument("--mock", action="store_true", help="simulated biased judge, no API key needed")
+    ap.add_argument("--seed", type=int, default=None, help="seed the mock judge for repeatable output")
+    args = ap.parse_args(argv)
+
+    if args.seed is not None:
+        random.seed(args.seed)
 
     run = dict(n=args.n, model=args.model, temperature=args.temperature, mock=args.mock)
 
@@ -108,7 +121,8 @@ def main():
     valid = (a1 + b1) + (a2 + b2)
     first_slot_rate = (a1 + a2) / valid if valid else 0.0
 
-    judge = "mock judge" if args.mock else f"{args.model}, temperature {args.temperature}"
+    temp = "model default" if args.temperature is None else args.temperature
+    judge = "mock judge" if args.mock else f"{args.model}, temperature {temp}"
     print(f"Judge: {judge}   Trials per order: {args.n}\n")
     print("                  shown FIRST    shown SECOND")
     print(f"Answer 1 wins     {ans1_when_first:>3}/{a1 + b1:<3}        {ans1_when_second:>3}/{a2 + b2:<3}")

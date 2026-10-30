@@ -1,3 +1,5 @@
-anthropic        # eval.py and judge_flip.py (not needed with --mock)
-deepeval         # jev_examples.py
-typesafe-sdk     # jev_examples.py (Jev API)
+# Only needed for real models. Every script runs with --mock on the standard library.
+anthropic            # eval.py and judge_flip.py
+deepeval>=4.3        # jev_examples.py
+typesafe-sdk>=0.7.5  # jev_examples.py (Jev API)
+pytest               # tests/

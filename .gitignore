@@ -1,4 +1,8 @@
 __pycache__/
-*.pyc
-.env
+*.py[cod]
+.pytest_cache/
 .venv/
+venv/
+.env
+.deepeval/
+.DS_Store
