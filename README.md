@@ -1,4 +1,5 @@
-# Your LLM Evaluation Is Lying to You
+# Your LLM Evaluation Is Lying to You 
+## (Türkçesi așağıda)
 
 [![eval](https://github.com/irombie/llm-eval-lies/actions/workflows/eval.yml/badge.svg)](https://github.com/irombie/llm-eval-lies/actions/workflows/eval.yml)
 
